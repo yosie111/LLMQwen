@@ -4,7 +4,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # 1. הגדרות המודל
 # אנחנו משתמשים בגרסת ה-Instruct כי היא אומנה במיוחד לנהל שיחה (שאלות ותשובות)
 # ולא סתם להשלים משפטים כמו גרסת ה-Base.
-model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+#model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+model_id = "Qwen/Qwen2.5-1.5B-Instruct"
 
 print(f"Loading model: {model_id}...")
 print("This might take a minute mostly for the download...")
