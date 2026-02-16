@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #06090f;
+            --bg-secondary: #0c1220;
+            --bg-card: #111a2e;
+            --bg-input: #0a0f1c;
+            --border: #1a2744;
+            --border-focus: #3b82f6;
+            --border-subtle: #141f38;
+            --text-primary: #e2e8f3;
+            --text-secondary: #7e91b3;
+            --text-muted: #4a5c7a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.12);
+            --accent-dim: rgba(59, 130, 246, 0.06);
+            --cyan: #06b6d4;
+            --cyan-glow: rgba(6, 182, 212, 0.1);
+            --green: #10b981;
+            --green-glow: rgba(16, 185, 129, 0.1);
+            --amber: #f59e0b;
+            --amber-glow: rgba(245, 158, 11, 0.1);
+            --violet: #8b5cf6;
+            --violet-glow: rgba(139, 92, 246, 0.1);
+            --rose: #f43f5e;
+            --rose-glow: rgba(244, 63, 94, 0.08);
+            --user-bg: #122244;
+            --user-border: #1e3a6e;
+            --ai-bg: #111a2e;
+            --ai-border: #1a2744;
+            --danger: #ef4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'IBM Plex Sans Hebrew', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ===== MODEL SWITCHER ===== */
+        .model-switcher { padding: 14px; border-bottom: 1px solid var(--border-subtle); }
+        .model-switcher-title {
+            font-size: 11px; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+        }
+        .model-cards { display: flex; flex-direction: column; gap: 8px; }
+        .model-card {
+            padding: 12px 14px; background: var(--bg-card);
+            border: 2px solid var(--border-subtle); border-radius: 10px;
+            cursor: pointer; transition: all 0.25s; position: relative;
+        }
+        .model-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .model-card.active {
+            border-color: var(--green);
+            background: var(--green-glow);
+        }
+        .model-card.loading {
+            border-color: var(--amber);
+            background: var(--amber-glow);
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .model-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .model-card-name { font-size: 13px; font-weight: 600; }
+        .model-card-badge {
+            font-size: 9px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+        }
+        .model-card-badge.active { background: var(--green-glow); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+        .model-card-badge.inactive { background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border); }
+        .model-card-badge.loading { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); animation: pulse 1s infinite; }
+        .model-card-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+        .model-card-meta {
+            display: flex; gap: 10px; margin-top: 6px;
+            font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: var(--text-muted);
+        }
+        .model-card-meta span { display: flex; align-items: center; gap: 3px; }
+        .model-indicator {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 11px; padding: 4px 10px;
+            background: var(--violet-glow); border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 20px; color: var(--violet);
+            font-family: 'IBM Plex Mono', monospace; font-weight: 600;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0; z-index: 100;
+        }
+        .header-brand { display: flex; align-items: center; gap: 12px; }
+        .logo {
+            width: 34px; height: 34px;
+            background: linear-gradient(135deg, var(--accent), var(--violet));
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 15px; color: #fff;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.2);
+        }
+        .header-title { font-size: 16px; font-weight: 600; }
+        .header-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+        .header-controls { display: flex; align-items: center; gap: 6px; }
+        .btn-icon {
+            width: 34px; height: 34px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 7px; color: var(--text-secondary);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; font-size: 14px;
+        }
+        .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-icon.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+        .status-pill {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 11px; color: var(--text-muted);
+            padding: 4px 10px;
+            background: var(--green-glow); border: 1px solid rgba(16,185,129,0.15);
+            border-radius: 20px;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+        .lang-toggle {
+            display: flex; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+        }
+        .lang-toggle button {
+            padding: 5px 10px; background: transparent; border: none;
+            color: var(--text-muted); font-family: inherit; font-size: 11px;
+            cursor: pointer; transition: all 0.2s; font-weight: 600;
+        }
+        .lang-toggle button.active { background: var(--accent); color: #fff; }
+
+        /* Shield indicator in header */
+        .shield-status {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 11px; padding: 4px 10px;
+            border-radius: 20px; border: 1px solid;
+            transition: all 0.3s;
+        }
+        .shield-status.locked {
+            color: var(--green); background: var(--green-glow);
+            border-color: rgba(16,185,129,0.2);
+        }
+        .shield-status.unlocked {
+            color: var(--amber); background: var(--amber-glow);
+            border-color: rgba(245,158,11,0.2);
+            animation: pulse 2s infinite;
+        }
+        .shield-status.modified {
+            color: var(--rose); background: var(--rose-glow);
+            border-color: rgba(244,63,94,0.2);
+            animation: pulse 1.5s infinite;
+        }
+
+        /* ===== LAYOUT ===== */
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+
+        /* ===== PANEL ===== */
+        .panel-right {
+            width: 360px; background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            flex-shrink: 0; overflow: hidden;
+            transition: margin-left 0.3s ease;
+        }
+        .panel-right.collapsed { margin-left: -360px; }
+        .panel-tabs {
+            display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .panel-tab {
+            flex: 1; padding: 10px 6px; background: transparent; border: none;
+            color: var(--text-muted); font-family: inherit; font-size: 11px;
+            font-weight: 500; cursor: pointer; transition: all 0.2s;
+            border-bottom: 2px solid transparent; text-align: center;
+        }
+        .panel-tab:hover { color: var(--text-secondary); }
+        .panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+        .panel-body { flex: 1; overflow-y: auto; }
+        .panel-page { display: none; }
+        .panel-page.active { display: block; }
+
+        /* ===== DASH CARDS ===== */
+        .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px; }
+        .dash-card {
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+            border-radius: 10px; padding: 12px;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .dash-card.wide { grid-column: span 2; }
+        .dash-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+        .dash-value { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600; }
+        .dash-sub { font-size: 11px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; }
+        .dash-value.blue { color: var(--accent); }
+        .dash-value.cyan { color: var(--cyan); }
+        .dash-value.green { color: var(--green); }
+        .dash-value.amber { color: var(--amber); }
+        .dash-value.violet { color: var(--violet); }
+        .dash-value.rose { color: var(--rose); }
+
+        /* Config summary */
+        .config-summary {
+            margin: 0 14px 14px; background: var(--bg-card);
+            border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden;
+        }
+        .config-summary-title {
+            padding: 10px 14px; font-size: 11px; font-weight: 600;
+            color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid var(--border-subtle);
+        }
+        .config-summary-title.blue-bg { background: var(--accent-dim); }
+        .config-summary-title.cyan-bg { background: var(--cyan-glow); }
+        .config-summary-title.green-bg { background: var(--green-glow); }
+        .config-summary-title.amber-bg { background: var(--amber-glow); }
+        .config-summary-title.rose-bg { background: var(--rose-glow); }
+        .config-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 12px;
+        }
+        .config-row:last-child { border-bottom: none; }
+        .config-row-label { color: var(--text-secondary); }
+        .config-row-value { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 12px; }
+        .config-row-value.on { color: var(--green); }
+        .config-row-value.off { color: var(--text-muted); }
+
+        /* Performance */
+        .perf-section { margin: 0 14px 14px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; }
+        .perf-title { padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-subtle); background: var(--cyan-glow); }
+        .perf-bar-row { padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); }
+        .perf-bar-row:last-child { border-bottom: none; }
+        .perf-bar-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+        .perf-bar-label { color: var(--text-secondary); }
+        .perf-bar-val { font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: var(--cyan); }
+        .perf-bar-track { height: 4px; background: var(--border-subtle); border-radius: 2px; overflow: hidden; }
+        .perf-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+        .perf-bar-fill.cyan { background: var(--cyan); }
+
+        /* ===== PARAM SECTION ===== */
+        .param-section { padding: 14px; border-bottom: 1px solid var(--border-subtle); }
+        .param-section-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .param-group { margin-bottom: 14px; }
+        .param-group:last-child { margin-bottom: 0; }
+        .param-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .param-name { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+        .param-val { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: var(--accent); min-width: 40px; text-align: left; }
+        .param-desc { font-size: 10px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; }
+        input[type="range"] {
+            width: 100%; height: 6px; -webkit-appearance: none; appearance: none;
+            background: var(--border); border-radius: 3px; cursor: pointer; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            background: var(--accent); border-radius: 50%; cursor: pointer;
+            box-shadow: 0 0 6px rgba(59,130,246,0.3); transition: transform 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        .range-marks { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+        .toggle-info { flex: 1; }
+        .toggle-name { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+        .toggle-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+        .toggle-switch {
+            width: 40px; height: 22px; background: var(--border);
+            border-radius: 11px; cursor: pointer; position: relative; transition: background 0.2s;
+            flex-shrink: 0; margin-right: 8px;
+        }
+        .toggle-switch.on { background: var(--accent); }
+        .toggle-switch::after {
+            content: ''; position: absolute; width: 16px; height: 16px;
+            background: #fff; border-radius: 50%; top: 3px; right: 3px; transition: transform 0.2s;
+        }
+        .toggle-switch.on::after { transform: translateX(-18px); }
+        .param-textarea {
+            width: 100%; min-height: 70px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);
+            padding: 10px 12px; font-family: inherit; font-size: 12px;
+            outline: none; resize: vertical; transition: border-color 0.2s;
+        }
+        .param-textarea:focus { border-color: var(--border-focus); }
+        .presets-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .preset-btn {
+            padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text-secondary); font-size: 11px;
+            font-family: inherit; cursor: pointer; transition: all 0.2s; font-weight: 500;
+        }
+        .preset-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+        /* Action Buttons */
+        .btn-full {
+            width: 100%; padding: 10px; border: 1px solid; border-radius: 8px;
+            cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+            transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-full:disabled { opacity: 0.35; cursor: not-allowed; }
+        .btn-full.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+        .btn-full.danger:hover:not(:disabled) { background: rgba(239,68,68,0.08); }
+        .btn-full.green { background: transparent; border-color: var(--green); color: var(--green); }
+        .btn-full.green:hover:not(:disabled) { background: var(--green-glow); }
+        .btn-full.amber { background: transparent; border-color: var(--amber); color: var(--amber); }
+        .btn-full.amber:hover:not(:disabled) { background: var(--amber-glow); }
+        .btn-full.blue { background: transparent; border-color: var(--accent); color: var(--accent); }
+        .btn-full.blue:hover:not(:disabled) { background: var(--accent-dim); }
+        .btn-full.rose { background: transparent; border-color: var(--rose); color: var(--rose); }
+        .btn-full.rose:hover:not(:disabled) { background: var(--rose-glow); }
+        .btn-full.filled-green { background: var(--green); border-color: var(--green); color: #fff; }
+        .btn-full.filled-green:hover:not(:disabled) { background: #059669; }
+        .btn-full.filled-amber { background: var(--amber); border-color: var(--amber); color: #000; }
+        .btn-full.filled-amber:hover:not(:disabled) { background: #d97706; }
+
+        /* ===== WEIGHT-SPECIFIC STYLES ===== */
+        .weight-shield {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 20px 14px; gap: 10px; text-align: center;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .shield-icon {
+            width: 56px; height: 56px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; transition: all 0.4s;
+        }
+        .shield-icon.locked { background: var(--green-glow); border: 2px solid rgba(16,185,129,0.3); }
+        .shield-icon.unlocked { background: var(--amber-glow); border: 2px solid rgba(245,158,11,0.3); animation: pulse 2s infinite; }
+        .shield-label { font-size: 14px; font-weight: 600; }
+        .shield-label.green { color: var(--green); }
+        .shield-label.amber { color: var(--amber); }
+        .shield-sublabel { font-size: 11px; color: var(--text-muted); max-width: 260px; line-height: 1.5; }
+
+        .weight-actions {
+            display: flex; flex-direction: column; gap: 8px;
+            padding: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        /* Layer list */
+        .layer-list { margin: 0 14px 14px; }
+        .layer-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-bottom: none; font-size: 11px;
+        }
+        .layer-item:first-child { border-radius: 8px 8px 0 0; }
+        .layer-item:last-child { border-bottom: 1px solid var(--border-subtle); border-radius: 0 0 8px 8px; }
+        .layer-item:only-child { border-radius: 8px; border-bottom: 1px solid var(--border-subtle); }
+        .layer-name {
+            font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+            color: var(--text-secondary); flex: 1; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left;
+        }
+        .layer-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-muted); min-width: 60px; text-align: center; }
+        .layer-badge {
+            font-size: 9px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+            min-width: 50px; text-align: center;
+        }
+        .layer-badge.frozen { background: var(--green-glow); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+        .layer-badge.open { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+        .layer-toggle-btn {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-muted); padding: 2px 8px; border-radius: 4px;
+            font-size: 9px; cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+            transition: all 0.2s; margin-right: 6px;
+        }
+        .layer-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Diff viewer */
+        .diff-section { margin: 0 14px 14px; }
+        .diff-card {
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+            border-radius: 10px; overflow: hidden;
+        }
+        .diff-header {
+            padding: 10px 14px; font-size: 11px; font-weight: 600;
+            color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid var(--border-subtle);
+        }
+        .diff-header.clean { background: var(--green-glow); color: var(--green); }
+        .diff-header.dirty { background: var(--rose-glow); color: var(--rose); }
+        .diff-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 11px;
+        }
+        .diff-row:last-child { border-bottom: none; }
+        .diff-layer {
+            font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+            color: var(--text-secondary); flex: 1; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left;
+        }
+        .diff-val { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--rose); }
+
+        /* Perturb section */
+        .perturb-section { padding: 14px; border-bottom: 1px solid var(--border-subtle); }
+
+        /* History log */
+        .history-log { margin: 0 14px 14px; }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 12px; background: var(--bg-card);
+            border: 1px solid var(--border-subtle); border-bottom: none;
+            font-size: 10px;
+        }
+        .history-item:first-child { border-radius: 8px 8px 0 0; }
+        .history-item:last-child { border-bottom: 1px solid var(--border-subtle); border-radius: 0 0 8px 8px; }
+        .history-action { color: var(--text-secondary); font-family: 'IBM Plex Mono', monospace; flex: 1; direction: ltr; text-align: left; }
+        .history-time { color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 9px; }
+
+        /* Templates */
+        .tmpl-card {
+            margin: 8px 14px; padding: 12px 14px; background: var(--bg-card);
+            border: 1px solid var(--border-subtle); border-radius: 10px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .tmpl-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .tmpl-card-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+        .tmpl-card-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+        /* ===== CHAT ===== */
+        .chat-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+        .messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+        .welcome {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: 14px; padding: 40px; animation: fadeIn 0.6s ease;
+        }
+        .welcome-icon {
+            width: 64px; height: 64px;
+            background: linear-gradient(135deg, var(--accent), var(--violet));
+            border-radius: 18px; display: flex; align-items: center; justify-content: center;
+            font-size: 28px; box-shadow: 0 6px 24px rgba(59,130,246,0.2);
+        }
+        .welcome h2 { font-size: 22px; font-weight: 600; }
+        .welcome p { color: var(--text-secondary); max-width: 380px; line-height: 1.6; font-size: 13px; }
+        .quick-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; }
+        .quick-btn {
+            padding: 7px 14px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 18px; color: var(--text-secondary); font-size: 12px;
+            cursor: pointer; font-family: inherit; transition: all 0.2s;
+        }
+        .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .message { display: flex; gap: 10px; max-width: 82%; animation: slideUp 0.3s ease; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.assistant { align-self: flex-start; }
+        .msg-avatar {
+            width: 30px; height: 30px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; flex-shrink: 0; margin-top: 2px;
+        }
+        .message.user .msg-avatar { background: var(--user-border); color: #fff; }
+        .message.assistant .msg-avatar { background: linear-gradient(135deg, var(--accent), var(--violet)); color: #fff; }
+        .msg-content {
+            padding: 10px 14px; border-radius: 10px; font-size: 13px;
+            line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+        }
+        .message.user .msg-content { background: var(--user-bg); border: 1px solid var(--user-border); border-top-left-radius: 3px; }
+        .message.assistant .msg-content { background: var(--ai-bg); border: 1px solid var(--ai-border); border-top-right-radius: 3px; }
+        .msg-meta { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; padding: 0 4px; display: flex; gap: 10px; }
+        .msg-content code { background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+        .msg-content pre { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 7px; overflow-x: auto; margin: 6px 0; }
+        .msg-content pre code { background: transparent; padding: 0; }
+        .typing-indicator { display: flex; gap: 10px; align-self: flex-start; animation: slideUp 0.3s ease; }
+        .typing-dots {
+            padding: 14px 18px; background: var(--ai-bg); border: 1px solid var(--ai-border);
+            border-radius: 10px; border-top-right-radius: 3px; display: flex; gap: 4px; align-items: center;
+        }
+        .typing-dots span { width: 6px; height: 6px; background: var(--text-muted); border-radius: 50%; animation: bounce 1.4s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        /* ===== INPUT ===== */
+        .input-area { padding: 14px 20px; background: var(--bg-secondary); border-top: 1px solid var(--border); flex-shrink: 0; }
+        .input-wrapper { display: flex; gap: 8px; align-items: flex-end; }
+        .input-box { flex: 1; }
+        .input-box textarea {
+            width: 100%; min-height: 44px; max-height: 180px; padding: 10px 14px;
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text-primary); font-family: inherit; font-size: 13px; line-height: 1.5;
+            outline: none; resize: none; transition: border-color 0.2s;
+        }
+        .input-box textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .input-box textarea::placeholder { color: var(--text-muted); }
+        .send-btn {
+            width: 44px; height: 44px; background: var(--accent); border: none;
+            border-radius: 10px; color: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        .send-btn:hover:not(:disabled) { background: var(--accent-hover); transform: scale(1.05); }
+        .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .send-btn svg { width: 18px; height: 18px; transform: rotate(180deg); }
+        .input-hints { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--text-muted); }
+        .input-hints kbd { background: var(--bg-card); padding: 1px 4px; border-radius: 3px; border: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; font-size: 9px; }
+
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 199; }
+        .overlay.active { display: block; }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            z-index: 500; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 14px; padding: 24px; max-width: 400px; width: 90%;
+            text-align: center;
+        }
+        .modal-icon { font-size: 40px; margin-bottom: 12px; }
+        .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+        .modal-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn {
+            padding: 9px 24px; border-radius: 8px; font-family: inherit;
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .modal-btn.cancel { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); }
+        .modal-btn.confirm-danger { background: var(--rose); border: 1px solid var(--rose); color: #fff; }
+        .modal-btn.confirm-amber { background: var(--amber); border: 1px solid var(--amber); color: #000; }
+        .modal-btn.confirm-green { background: var(--green); border: 1px solid var(--green); color: #fff; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        @media (max-width: 768px) {
+            .panel-right { position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; box-shadow: 4px 0 24px rgba(0,0,0,0.5); }
+            .panel-right.collapsed { margin-left: -360px; }
+            .messages-area { padding: 14px; }
+            .message { max-width: 92%; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+        <div class="modal-icon" id="modalIcon">⚠️</div>
+        <div class="modal-title" id="modalTitle">Title</div>
+        <div class="modal-text" id="modalText">Text</div>
+        <div class="modal-actions" id="modalActions"></div>
+    </div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+    <div class="header-brand">
+        <div class="logo">Q</div>
+        <div>
+            <div class="header-title" data-i18n="headerTitle">צ'אט Qwen</div>
+            <div class="header-sub" data-i18n="headerSub">מודל שפה מקומי</div>
+        </div>
+    </div>
+    <div class="header-controls">
+        <div class="model-indicator" id="headerModelIndicator">
+            🧠 <span id="headerModelName">0.5B</span>
+        </div>
+        <div class="shield-status locked" id="headerShield">
+            <span id="shieldIcon">🛡</span>
+            <span id="shieldText" data-i18n="shieldLocked">מוגן</span>
+        </div>
+        <div class="status-pill">
+            <span class="dot"></span>
+            <span data-i18n="connected">מחובר</span>
+        </div>
+        <div class="lang-toggle">
+            <button class="active" onclick="setLang('he')" id="langHe">עב</button>
+            <button onclick="setLang('en')" id="langEn">EN</button>
+        </div>
+        <button class="btn-icon" onclick="togglePanel('dashboard')" title="Dashboard">📊</button>
+        <button class="btn-icon" onclick="togglePanel('params')" title="Parameters">⚙</button>
+        <button class="btn-icon" onclick="togglePanel('weights')" title="Weights">🛡</button>
+    </div>
+</header>
+
+<div class="main-layout">
+    <!-- PANEL -->
+    <aside class="panel-right collapsed" id="panelRight">
+        <div class="panel-tabs">
+            <button class="panel-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">📊 <span data-i18n="tabDash">סטטוס</span></button>
+            <button class="panel-tab" data-tab="params" onclick="switchTab('params')">🎛 <span data-i18n="tabParams">פרמטרים</span></button>
+            <button class="panel-tab" data-tab="weights" onclick="switchTab('weights')">🛡 <span data-i18n="tabWeights">משקולות</span></button>
+            <button class="panel-tab" data-tab="templates" onclick="switchTab('templates')">📋 <span data-i18n="tabTmpl">תבניות</span></button>
+        </div>
+
+        <div class="panel-body">
+            <!-- ===== DASHBOARD ===== -->
+            <div class="panel-page active" id="page-dashboard">
+                <div class="dash-grid">
+                    <div class="dash-card wide">
+                        <div class="dash-label" data-i18n="lblModel">מודל</div>
+                        <div class="dash-value blue" id="dModelId" style="font-size:14px;">Qwen2.5-0.5B</div>
+                        <div class="dash-sub" id="dModelMeta">Loading...</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-label" data-i18n="lblTotalParams">פרמטרים</div>
+                        <div class="dash-value violet" id="dParamCount">—</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-label" data-i18n="lblDevice">התקן</div>
+                        <div class="dash-value amber" id="dDevice">CPU</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-label" data-i18n="lblVocab">אוצר מילים</div>
+                        <div class="dash-value cyan" id="dVocab">—</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-label" data-i18n="lblDtype">דיוק</div>
+                        <div class="dash-value green" id="dDtype">—</div>
+                    </div>
+                </div>
+
+                <!-- Model Switcher -->
+                <div class="model-switcher">
+                    <div class="model-switcher-title">🧠 <span data-i18n="lblSwitchModel">החלפת מודל</span></div>
+                    <div class="model-cards" id="modelCards">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+
+                <div class="config-summary" id="configSummary">
+                    <div class="config-summary-title blue-bg" data-i18n="lblActiveConfig">⚡ תצורה פעילה</div>
+                </div>
+                <div class="perf-section">
+                    <div class="perf-title" data-i18n="lblPerf">📈 ביצועי תגובה אחרונה</div>
+                    <div class="perf-bar-row"><div class="perf-bar-header"><span class="perf-bar-label" data-i18n="lblPerfTime">זמן תגובה</span><span class="perf-bar-val" id="perfTime">—</span></div><div class="perf-bar-track"><div class="perf-bar-fill cyan" id="perfTimeBar" style="width:0%"></div></div></div>
+                    <div class="perf-bar-row"><div class="perf-bar-header"><span class="perf-bar-label" data-i18n="lblPerfTPS">טוקנים/שנייה</span><span class="perf-bar-val" id="perfTPS">—</span></div><div class="perf-bar-track"><div class="perf-bar-fill cyan" id="perfTPSBar" style="width:0%"></div></div></div>
+                    <div class="perf-bar-row"><div class="perf-bar-header"><span class="perf-bar-label" data-i18n="lblPerfIn">טוקני קלט</span><span class="perf-bar-val" id="perfIn">—</span></div><div class="perf-bar-track"><div class="perf-bar-fill cyan" id="perfInBar" style="width:0%"></div></div></div>
+                    <div class="perf-bar-row"><div class="perf-bar-header"><span class="perf-bar-label" data-i18n="lblPerfOut">טוקני פלט</span><span class="perf-bar-val" id="perfOut">—</span></div><div class="perf-bar-track"><div class="perf-bar-fill cyan" id="perfOutBar" style="width:0%"></div></div></div>
+                </div>
+            </div>
+
+            <!-- ===== PARAMETERS ===== -->
+            <div class="panel-page" id="page-params">
+                <div class="param-section">
+                    <div class="param-section-title">💬 <span data-i18n="secSystemPrompt">הנחיית מערכת</span></div>
+                    <textarea class="param-textarea" id="systemPrompt" dir="auto">You are a helpful and knowledgeable AI assistant. You answer in the language the user writes in. Be concise and accurate.</textarea>
+                </div>
+                <div class="param-section">
+                    <div class="param-section-title">🎯 <span data-i18n="secPresets">הגדרות מהירות</span></div>
+                    <div class="presets-row">
+                        <button class="preset-btn" onclick="applyPreset('precise')">🎯 מדויק</button>
+                        <button class="preset-btn" onclick="applyPreset('balanced')">⚖️ מאוזן</button>
+                        <button class="preset-btn" onclick="applyPreset('creative')">🎨 יצירתי</button>
+                        <button class="preset-btn" onclick="applyPreset('beam')">🔍 Beam</button>
+                    </div>
+                </div>
+                <div class="param-section">
+                    <div class="param-section-title">🎲 <span data-i18n="secSampling">דגימה</span></div>
+                    <div class="toggle-row"><div class="toggle-switch on" id="togDoSample" onclick="toggleBool('do_sample')"></div><div class="toggle-info"><div class="toggle-name">Do Sample</div><div class="toggle-desc" data-i18n="descDoSample">דגימה אקראית (כבוי = greedy)</div></div></div>
+                    <div class="param-group" id="samplingParams">
+                        <div class="param-header"><span class="param-name">Temperature</span><span class="param-val" id="valTemp">0.70</span></div>
+                        <div class="param-desc" data-i18n="descTemp">נמוך = מדויק. גבוה = יצירתי.</div>
+                        <input type="range" min="0.05" max="2.0" step="0.05" value="0.7" oninput="updateParam('temperature', this.value)">
+                        <div class="range-marks"><span>0.05</span><span>1.0</span><span>2.0</span></div>
+                    </div>
+                    <div class="param-group" id="samplingParams2">
+                        <div class="param-header"><span class="param-name">Top-P</span><span class="param-val" id="valTopP">0.90</span></div>
+                        <input type="range" min="0.1" max="1.0" step="0.05" value="0.9" oninput="updateParam('top_p', this.value)">
+                        <div class="range-marks"><span>0.1</span><span>0.5</span><span>1.0</span></div>
+                    </div>
+                    <div class="param-group">
+                        <div class="param-header"><span class="param-name">Top-K</span><span class="param-val" id="valTopK">50</span></div>
+                        <input type="range" min="0" max="200" step="5" value="50" oninput="updateParam('top_k', this.value)">
+                        <div class="range-marks"><span>0</span><span>100</span><span>200</span></div>
+                    </div>
+                </div>
+                <div class="param-section">
+                    <div class="param-section-title">🚫 <span data-i18n="secPenalties">עונשים</span></div>
+                    <div class="param-group"><div class="param-header"><span class="param-name">Repetition Penalty</span><span class="param-val" id="valRepPen">1.10</span></div><input type="range" min="1.0" max="2.0" step="0.05" value="1.1" oninput="updateParam('repetition_penalty', this.value)"><div class="range-marks"><span>1.0</span><span>1.5</span><span>2.0</span></div></div>
+                    <div class="param-group"><div class="param-header"><span class="param-name">No Repeat N-gram</span><span class="param-val" id="valNgram">0</span></div><input type="range" min="0" max="10" step="1" value="0" oninput="updateParam('no_repeat_ngram_size', this.value)"><div class="range-marks"><span>0</span><span>5</span><span>10</span></div></div>
+                </div>
+                <div class="param-section">
+                    <div class="param-section-title">📏 <span data-i18n="secGeneration">יצירה</span></div>
+                    <div class="param-group"><div class="param-header"><span class="param-name">Max Tokens</span><span class="param-val" id="valMaxTok">512</span></div><input type="range" min="32" max="2048" step="32" value="512" oninput="updateParam('max_tokens', this.value)"><div class="range-marks"><span>32</span><span>1024</span><span>2048</span></div></div>
+                    <div class="param-group"><div class="param-header"><span class="param-name">Num Beams</span><span class="param-val" id="valBeams">1</span></div><input type="range" min="1" max="8" step="1" value="1" oninput="updateParam('num_beams', this.value)"><div class="range-marks"><span>1</span><span>4</span><span>8</span></div></div>
+                    <div class="param-group"><div class="param-header"><span class="param-name">Length Penalty</span><span class="param-val" id="valLenPen">1.00</span></div><input type="range" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateParam('length_penalty', this.value)"><div class="range-marks"><span>0.5</span><span>1.0</span><span>2.0</span></div></div>
+                    <div class="toggle-row"><div class="toggle-switch" id="togEarlyStop" onclick="toggleBool('early_stopping')"></div><div class="toggle-info"><div class="toggle-name">Early Stopping</div></div></div>
+                </div>
+                <div class="param-section"><button class="btn-full danger" onclick="resetChat()">🗑 <span data-i18n="btnReset">אפס שיחה</span></button></div>
+            </div>
+
+            <!-- ===== WEIGHTS ===== -->
+            <div class="panel-page" id="page-weights">
+                <!-- Shield Status -->
+                <div class="weight-shield" id="weightShield">
+                    <div class="shield-icon locked" id="shieldBigIcon">🛡️</div>
+                    <div class="shield-label green" id="shieldBigLabel" data-i18n="wFrozenTitle">המשקולות מוגנות</div>
+                    <div class="shield-sublabel" id="shieldBigSub" data-i18n="wFrozenDesc">כל המשקולות נעולות. המודל מוגן מפני שינויים.</div>
+                </div>
+
+                <!-- Main Actions -->
+                <div class="weight-actions">
+                    <button class="btn-full filled-amber" id="btnUnfreeze" onclick="unfreezeAll()">
+                        🔓 <span data-i18n="wUnfreeze">פתח משקולות לאימון</span>
+                    </button>
+                    <button class="btn-full filled-green" id="btnFreeze" onclick="freezeAll()" style="display:none;">
+                        🔒 <span data-i18n="wFreeze">נעל ​​והגן על המשקולות</span>
+                    </button>
+                    <button class="btn-full rose" id="btnResetWeights" onclick="confirmResetWeights()">
+                        ♻️ <span data-i18n="wReset">אפס משקולות לברירת מחדל</span>
+                    </button>
+                </div>
+
+                <!-- Stats -->
+                <div class="config-summary" id="weightStats">
+                    <div class="config-summary-title green-bg" id="weightStatsTitle">📊 <span data-i18n="wStatsTitle">סטטיסטיקת משקולות</span></div>
+                </div>
+
+                <!-- Diff Viewer -->
+                <div class="diff-section">
+                    <div class="diff-card" id="diffCard">
+                        <div class="diff-header clean" id="diffHeader" data-i18n="wDiffClean">✓ אין שינויים מהמקור</div>
+                        <div id="diffBody"></div>
+                    </div>
+                </div>
+
+                <!-- Layer Controls -->
+                <div style="padding: 0 14px 8px;">
+                    <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
+                        🧩 <span data-i18n="wLayerControl">שליטה לפי שכבה</span>
+                    </div>
+                </div>
+                <div class="layer-list" id="layerList">
+                    <div class="layer-item"><span class="layer-name">Loading...</span></div>
+                </div>
+
+                <!-- Perturb (Experiment) -->
+                <div class="perturb-section">
+                    <div class="param-section-title">🧪 <span data-i18n="wPerturb">ניסוי — הוספת רעש</span></div>
+                    <div class="param-desc" data-i18n="wPerturbDesc">הוסף רעש קטן למשקולות לצורך בדיקה והתנסות. המשקולות חייבות להיות פתוחות.</div>
+                    <div class="param-group">
+                        <div class="param-header"><span class="param-name">Noise Scale</span><span class="param-val" id="valNoise">0.001</span></div>
+                        <input type="range" min="0.0001" max="0.1" step="0.0001" value="0.001" oninput="document.getElementById('valNoise').textContent=parseFloat(this.value).toFixed(4);" id="noiseSlider">
+                        <div class="range-marks"><span>0.0001</span><span>0.01</span><span>0.1</span></div>
+                    </div>
+                    <button class="btn-full amber" onclick="perturbWeights()" id="btnPerturb">🧪 <span data-i18n="wPerturbBtn">הפעל רעש</span></button>
+                </div>
+
+                <!-- History -->
+                <div style="padding: 0 14px 8px; margin-top: 10px;">
+                    <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
+                        📜 <span data-i18n="wHistory">היסטוריית פעולות</span>
+                    </div>
+                </div>
+                <div class="history-log" id="historyLog">
+                    <div class="history-item"><span class="history-action">No actions yet</span></div>
+                </div>
+            </div>
+
+            <!-- ===== TEMPLATES ===== -->
+            <div class="panel-page" id="page-templates">
+                <div style="padding:14px 14px 6px; font-size:11px; color:var(--text-muted);" data-i18n="tmplHint">לחצו על תבנית להזנה</div>
+                <div class="tmpl-card" onclick="applyTemplate('analysis')"><div class="tmpl-card-title">📊 ניתוח מעמיק</div><div class="tmpl-card-desc">רקע, נקודות מפתח, יתרונות וחסרונות</div></div>
+                <div class="tmpl-card" onclick="applyTemplate('compare')"><div class="tmpl-card-title">⚖️ השוואה מפורטת</div><div class="tmpl-card-desc">טבלת השוואה עם מסקנה</div></div>
+                <div class="tmpl-card" onclick="applyTemplate('steps')"><div class="tmpl-card-title">📋 שלבים מפורטים</div><div class="tmpl-card-desc">הסבר שלב-אחר-שלב</div></div>
+                <div class="tmpl-card" onclick="applyTemplate('code')"><div class="tmpl-card-title">💻 הסבר קוד</div><div class="tmpl-card-desc">סקירה, הסבר שורה-אחר-שורה</div></div>
+                <div class="tmpl-card" onclick="applyTemplate('summarize')"><div class="tmpl-card-title">📝 סיכום טקסט</div><div class="tmpl-card-desc">סיכום, נקודות מפתח, מסקנה</div></div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+    <!-- CHAT -->
+    <div class="chat-container">
+        <div class="messages-area" id="messagesArea">
+            <div class="welcome" id="welcomeScreen">
+                <div class="welcome-icon">🤖</div>
+                <h2 data-i18n="welcomeTitle">!שלום</h2>
+                <p data-i18n="welcomeText">כתבו בעברית או באנגלית.<br>📊 סטטוס · ⚙ פרמטרים · 🛡 הגנת משקולות</p>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="quickSend('מה אתה יכול לעשות?')">🤔 מה אתה יודע?</button>
+                    <button class="quick-btn" onclick="quickSend('Explain neural networks')">🧠 Neural Nets</button>
+                    <button class="quick-btn" onclick="quickSend('כתוב קוד Python שמחשב עצרת')">💻 Python</button>
+                </div>
+            </div>
+        </div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <button class="send-btn" onclick="sendMessage()" id="sendBtn" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+                <div class="input-box">
+                    <textarea id="userInput" rows="1" placeholder="כתוב הודעה..." dir="auto"
+                              oninput="autoResize(this); toggleSend();"
+                              onkeydown="handleKey(event)"></textarea>
+                </div>
+            </div>
+            <div class="input-hints">
+                <span><kbd>Shift</kbd>+<kbd>Enter</kbd> <span data-i18n="hintNewline">לשורה חדשה</span></span>
+                <span id="charCount"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== STATE ==========
+let isLoading = false;
+let currentLang = 'he';
+let weightsFrozen = true;
+let weightsDirty = false;
+const sessionId = 'session_' + Date.now();
+const params = { temperature:0.7, top_p:0.9, top_k:50, repetition_penalty:1.1, length_penalty:1.0, no_repeat_ngram_size:0, max_tokens:512, num_beams:1, do_sample:true, early_stopping:false };
+
+// ========== I18N ==========
+const i18n = {
+    he: {
+        headerTitle:"צ'אט Qwen", headerSub:"מודל שפה מקומי", connected:"מחובר",
+        shieldLocked:"מוגן", shieldOpen:"פתוח", shieldDirty:"שונה",
+        tabDash:"סטטוס", tabParams:"פרמטרים", tabWeights:"משקולות", tabTmpl:"תבניות",
+        wFrozenTitle:"המשקולות מוגנות", wFrozenDesc:"כל המשקולות נעולות. המודל מוגן מפני שינויים.",
+        wOpenTitle:"המשקולות פתוחות", wOpenDesc:"המשקולות פתוחות לשינוי ואימון. היזהרו!",
+        wUnfreeze:"פתח משקולות לאימון", wFreeze:"נעל והגן על המשקולות", wReset:"אפס משקולות לברירת מחדל",
+        wStatsTitle:"סטטיסטיקת משקולות",
+        wDiffClean:"✓ אין שינויים מהמקור", wDiffDirty:"⚠ נמצאו שינויים מהמקור",
+        wLayerControl:"שליטה לפי שכבה", wPerturb:"ניסוי — הוספת רעש",
+        wPerturbDesc:"הוסף רעש קטן למשקולות. המשקולות חייבות להיות פתוחות.",
+        wPerturbBtn:"הפעל רעש", wHistory:"היסטוריית פעולות",
+        btnReset:"אפס שיחה", hintNewline:"לשורה חדשה", placeholder:"כתוב הודעה...",
+        confirmReset:"בטוח שברצונך לאפס את השיחה?",
+        modalResetTitle:"אפס משקולות למקור?", modalResetText:"פעולה זו תחזיר את כל המשקולות לערכים המקוריים כפי שהורדו. כל שינוי יאבד.",
+        modalResetConfirm:"אפס", modalCancel:"ביטול",
+        modalUnfreezeTitle:"פתיחת משקולות", modalUnfreezeText:"פתיחת המשקולות מאפשרת שינויים. האם להמשיך?",
+        modalUnfreezeConfirm:"פתח",
+        frozen:"נעול", open:"פתוח", allFrozen:"הכל נעול", allOpen:"הכל פתוח", partial:"חלקי",
+        welcomeTitle:"!שלום", welcomeText:"כתבו בעברית או באנגלית.<br>📊 סטטוס · ⚙ פרמטרים · 🛡 הגנת משקולות",
+        lblSwitchModel:"החלפת מודל",
+    },
+    en: {
+        headerTitle:"Qwen Chat", headerSub:"Local Language Model", connected:"Connected",
+        shieldLocked:"Protected", shieldOpen:"Unlocked", shieldDirty:"Modified",
+        tabDash:"Status", tabParams:"Params", tabWeights:"Weights", tabTmpl:"Templates",
+        wFrozenTitle:"Weights Protected", wFrozenDesc:"All weights are locked. Model is protected from modifications.",
+        wOpenTitle:"Weights Unlocked", wOpenDesc:"Weights are open for fine-tuning. Be careful!",
+        wUnfreeze:"Unlock Weights for Training", wFreeze:"Lock & Protect Weights", wReset:"Reset Weights to Default",
+        wStatsTitle:"Weight Statistics",
+        wDiffClean:"✓ No changes from original", wDiffDirty:"⚠ Changes detected from original",
+        wLayerControl:"Per-Layer Control", wPerturb:"Experiment — Add Noise",
+        wPerturbDesc:"Add small noise to weights for testing. Weights must be unlocked.",
+        wPerturbBtn:"Apply Noise", wHistory:"Action History",
+        btnReset:"Reset Chat", hintNewline:"for new line", placeholder:"Type a message...",
+        confirmReset:"Are you sure you want to reset?",
+        modalResetTitle:"Reset Weights to Original?", modalResetText:"This will restore all weights to their original downloaded values. All changes will be lost.",
+        modalResetConfirm:"Reset", modalCancel:"Cancel",
+        modalUnfreezeTitle:"Unlock Weights", modalUnfreezeText:"Unlocking weights allows modifications. Continue?",
+        modalUnfreezeConfirm:"Unlock",
+        frozen:"Frozen", open:"Open", allFrozen:"All Frozen", allOpen:"All Open", partial:"Partial",
+        welcomeTitle:"Hello!", welcomeText:"Write in Hebrew or English.<br>📊 Status · ⚙ Params · 🛡 Weight Protection",
+        lblSwitchModel:"Switch Model",
+    }
+};
+
+function setLang(lang) {
+    currentLang = lang;
+    document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+    document.getElementById('langHe').classList.toggle('active', lang === 'he');
+    document.getElementById('langEn').classList.toggle('active', lang === 'en');
+    document.getElementById('userInput').placeholder = i18n[lang].placeholder;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (i18n[lang][k]) el.innerHTML = i18n[lang][k];
+    });
+    refreshConfigSummary();
+    updateShieldUI();
+    fetchModels();
+}
+
+// ========== MODAL ==========
+let modalCallback = null;
+function showModal(icon, title, text, buttons) {
+    document.getElementById('modalIcon').textContent = icon;
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalText').textContent = text;
+    const acts = document.getElementById('modalActions');
+    acts.innerHTML = '';
+    buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'modal-btn ' + b.cls;
+        btn.textContent = b.label;
+        btn.onclick = () => { document.getElementById('modalOverlay').classList.remove('active'); if (b.action) b.action(); };
+        acts.appendChild(btn);
+    });
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+// ========== PANEL ==========
+let openPanel = null;
+function togglePanel(tab) {
+    const panel = document.getElementById('panelRight');
+    const overlay = document.getElementById('overlay');
+    if (openPanel === tab) { panel.classList.add('collapsed'); overlay.classList.remove('active'); openPanel = null; }
+    else { panel.classList.remove('collapsed'); overlay.classList.add('active'); switchTab(tab); openPanel = tab; }
+}
+function closePanel() { document.getElementById('panelRight').classList.add('collapsed'); document.getElementById('overlay').classList.remove('active'); openPanel = null; }
+function switchTab(tab) {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('.panel-page').forEach(p => p.classList.toggle('active', p.id === 'page-' + tab));
+    if (tab === 'dashboard') refreshConfigSummary();
+    if (tab === 'weights') refreshWeightsTab();
+}
+
+// ========== PARAMS ==========
+function updateParam(key, val) {
+    params[key] = parseFloat(val);
+    const elMap = { temperature:'valTemp', top_p:'valTopP', top_k:'valTopK', repetition_penalty:'valRepPen', no_repeat_ngram_size:'valNgram', max_tokens:'valMaxTok', num_beams:'valBeams', length_penalty:'valLenPen' };
+    const el = document.getElementById(elMap[key]);
+    if (el) el.textContent = ['top_k','no_repeat_ngram_size','max_tokens','num_beams'].includes(key) ? Math.round(params[key]) : params[key].toFixed(2);
+    if (key === 'do_sample') updateSamplingUI();
+    refreshConfigSummary();
+}
+function toggleBool(key) {
+    params[key] = !params[key];
+    document.getElementById({do_sample:'togDoSample', early_stopping:'togEarlyStop'}[key]).classList.toggle('on', params[key]);
+    if (key === 'do_sample') updateSamplingUI();
+    refreshConfigSummary();
+}
+function updateSamplingUI() {
+    const d = !params.do_sample;
+    document.querySelectorAll('#samplingParams, #samplingParams2').forEach(s => { s.style.opacity = d ? '0.35' : '1'; s.querySelectorAll('input').forEach(i => i.disabled = d); });
+}
+function applyPreset(name) {
+    const presets = {
+        precise:  { temperature:0.2, top_p:0.8, top_k:20, repetition_penalty:1.15, num_beams:1, do_sample:true },
+        balanced: { temperature:0.7, top_p:0.9, top_k:50, repetition_penalty:1.1, num_beams:1, do_sample:true },
+        creative: { temperature:1.2, top_p:0.95, top_k:100, repetition_penalty:1.05, num_beams:1, do_sample:true },
+        beam:     { temperature:0.7, top_p:0.9, top_k:50, repetition_penalty:1.1, num_beams:4, do_sample:false, early_stopping:true },
+    };
+    Object.assign(params, presets[name]);
+    syncAllSliders();
+    refreshConfigSummary();
+}
+function syncAllSliders() {
+    const keys = ['temperature','top_p','top_k','repetition_penalty','no_repeat_ngram_size','max_tokens','num_beams','length_penalty'];
+    const ids = ['valTemp','valTopP','valTopK','valRepPen','valNgram','valMaxTok','valBeams','valLenPen'];
+    const sliders = document.querySelectorAll('#page-params input[type="range"]');
+    keys.forEach((k, i) => { if (sliders[i]) sliders[i].value = params[k]; });
+    ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.textContent = ['top_k','no_repeat_ngram_size','max_tokens','num_beams'].includes(keys[i]) ? Math.round(params[keys[i]]) : params[keys[i]].toFixed(2); });
+    document.getElementById('togDoSample').classList.toggle('on', params.do_sample);
+    document.getElementById('togEarlyStop').classList.toggle('on', params.early_stopping);
+    updateSamplingUI();
+}
+function refreshConfigSummary() {
+    const c = document.getElementById('configSummary');
+    let html = '<div class="config-summary-title blue-bg">⚡ ' + (currentLang === 'he' ? 'תצורה פעילה' : 'Active Config') + '</div>';
+    [['Do Sample', params.do_sample?'✓ ON':'✗ OFF',params.do_sample],['Temperature',params.temperature.toFixed(2)],['Top-P',params.top_p.toFixed(2)],['Top-K',Math.round(params.top_k)],['Rep. Penalty',params.repetition_penalty.toFixed(2)],['Max Tokens',Math.round(params.max_tokens)],['Num Beams',Math.round(params.num_beams)],['Length Penalty',params.length_penalty.toFixed(2)],['Early Stop',params.early_stopping?'✓ ON':'✗ OFF',params.early_stopping]]
+    .forEach(([l,v,b]) => { let cls = b===true?' on':b===false?' off':''; html += `<div class="config-row"><span class="config-row-label">${l}</span><span class="config-row-value${cls}">${v}</span></div>`; });
+    c.innerHTML = html;
+}
+
+// ========== WEIGHT PROTECTION ==========
+function updateShieldUI() {
+    const t = i18n[currentLang];
+    const hs = document.getElementById('headerShield');
+    const si = document.getElementById('shieldIcon');
+    const st = document.getElementById('shieldText');
+    const bi = document.getElementById('shieldBigIcon');
+    const bl = document.getElementById('shieldBigLabel');
+    const bs = document.getElementById('shieldBigSub');
+
+    if (weightsFrozen) {
+        hs.className = 'shield-status locked'; si.textContent = '🛡'; st.textContent = t.shieldLocked;
+        bi.className = 'shield-icon locked'; bi.textContent = '🛡️';
+        bl.className = 'shield-label green'; bl.textContent = t.wFrozenTitle;
+        bs.textContent = t.wFrozenDesc;
+        document.getElementById('btnUnfreeze').style.display = '';
+        document.getElementById('btnFreeze').style.display = 'none';
+    } else {
+        hs.className = 'shield-status unlocked'; si.textContent = '🔓'; st.textContent = weightsDirty ? t.shieldDirty : t.shieldOpen;
+        if (weightsDirty) hs.className = 'shield-status modified';
+        bi.className = 'shield-icon unlocked'; bi.textContent = '🔓';
+        bl.className = 'shield-label amber'; bl.textContent = t.wOpenTitle;
+        bs.textContent = t.wOpenDesc;
+        document.getElementById('btnUnfreeze').style.display = 'none';
+        document.getElementById('btnFreeze').style.display = '';
+    }
+}
+
+async function refreshWeightsTab() {
+    try {
+        const res = await fetch('/api/weights/status');
+        const d = await res.json();
+        weightsFrozen = d.frozen;
+        updateShieldUI();
+
+        // Stats
+        const ws = document.getElementById('weightStats');
+        const color = d.frozen ? 'green-bg' : 'amber-bg';
+        let html = `<div class="config-summary-title ${color}">📊 ${i18n[currentLang].wStatsTitle}</div>`;
+        html += `<div class="config-row"><span class="config-row-label">Total Parameters</span><span class="config-row-value">${(d.total_params/1e6).toFixed(1)}M</span></div>`;
+        html += `<div class="config-row"><span class="config-row-label">Frozen</span><span class="config-row-value on">${(d.frozen_params/1e6).toFixed(1)}M (${d.frozen_pct}%)</span></div>`;
+        html += `<div class="config-row"><span class="config-row-label">Trainable</span><span class="config-row-value${d.trainable_params>0?' style="color:var(--amber)"':''}">${(d.trainable_params/1e6).toFixed(1)}M (${d.trainable_pct}%)</span></div>`;
+        html += `<div class="config-row"><span class="config-row-label">Changed Layers</span><span class="config-row-value${d.diff.changed_count>0?' style="color:var(--rose)"':''}">${d.diff.changed_count} / ${d.diff.total_layers}</span></div>`;
+        if (d.diff.total_diff > 0) html += `<div class="config-row"><span class="config-row-label">Total Diff (L1)</span><span class="config-row-value" style="color:var(--rose)">${d.diff.total_diff.toFixed(4)}</span></div>`;
+        ws.innerHTML = html;
+
+        // Diff
+        const dh = document.getElementById('diffHeader');
+        const db = document.getElementById('diffBody');
+        weightsDirty = d.diff.changed_count > 0;
+        if (d.diff.changed_count === 0) {
+            dh.className = 'diff-header clean';
+            dh.textContent = i18n[currentLang].wDiffClean;
+            db.innerHTML = '';
+        } else {
+            dh.className = 'diff-header dirty';
+            dh.textContent = i18n[currentLang].wDiffDirty + ` (${d.diff.changed_count})`;
+            db.innerHTML = d.diff.changed_layers.map(c => `<div class="diff-row"><span class="diff-layer">${c.layer}</span><span class="diff-val">Δ ${c.diff.toFixed(4)}</span></div>`).join('');
+        }
+        updateShieldUI();
+
+        // Layers
+        const ll = document.getElementById('layerList');
+        ll.innerHTML = d.layer_groups.map(g => {
+            const isFrozen = g.frozen;
+            const badge = isFrozen ? `<span class="layer-badge frozen">${i18n[currentLang].frozen}</span>` : `<span class="layer-badge open">${i18n[currentLang].open}</span>`;
+            const toggleLabel = isFrozen ? '🔓' : '🔒';
+            return `<div class="layer-item">
+                <button class="layer-toggle-btn" onclick="toggleLayer('${g.name}', ${isFrozen})">${toggleLabel}</button>
+                <span class="layer-name" title="${g.name}">${g.name}</span>
+                <span class="layer-meta">${(g.params/1e3).toFixed(0)}K</span>
+                ${badge}
+            </div>`;
+        }).join('');
+
+        // History
+        const hl = document.getElementById('historyLog');
+        if (d.history.length === 0) {
+            hl.innerHTML = '<div class="history-item"><span class="history-action" style="color:var(--text-muted)">No actions yet</span></div>';
+        } else {
+            hl.innerHTML = d.history.reverse().map(h => `<div class="history-item"><span class="history-action">${h.action}</span><span class="history-time">${h.timestamp.split(' ')[1]}</span></div>`).join('');
+        }
+    } catch (e) { console.error('Weight status error:', e); }
+}
+
+function unfreezeAll() {
+    const t = i18n[currentLang];
+    showModal('🔓', t.modalUnfreezeTitle, t.modalUnfreezeText, [
+        { label: t.modalCancel, cls: 'cancel' },
+        { label: t.modalUnfreezeConfirm, cls: 'confirm-amber', action: async () => {
+            await fetch('/api/weights/unfreeze', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+            refreshWeightsTab();
+        }}
+    ]);
+}
+
+function freezeAll() {
+    fetch('/api/weights/freeze', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(() => refreshWeightsTab());
+}
+
+function confirmResetWeights() {
+    const t = i18n[currentLang];
+    showModal('♻️', t.modalResetTitle, t.modalResetText, [
+        { label: t.modalCancel, cls: 'cancel' },
+        { label: t.modalResetConfirm, cls: 'confirm-danger', action: async () => {
+            await fetch('/api/weights/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+            refreshWeightsTab();
+        }}
+    ]);
+}
+
+async function toggleLayer(name, currentlyFrozen) {
+    await fetch('/api/weights/freeze_layer', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ layer_name: name, freeze: !currentlyFrozen })
+    });
+    refreshWeightsTab();
+}
+
+async function perturbWeights() {
+    const scale = parseFloat(document.getElementById('noiseSlider').value);
+    const res = await fetch('/api/weights/perturb', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ noise_scale: scale })
+    });
+    const d = await res.json();
+    if (d.error) { alert(d.error); return; }
+    refreshWeightsTab();
+}
+
+// ========== PERFORMANCE ==========
+function updatePerformance(data) {
+    document.getElementById('perfTime').textContent = data.elapsed_seconds + 's';
+    document.getElementById('perfTPS').textContent = data.tokens_per_sec + ' t/s';
+    document.getElementById('perfIn').textContent = data.input_tokens;
+    document.getElementById('perfOut').textContent = data.output_tokens;
+    document.getElementById('perfTimeBar').style.width = Math.min(100, (data.elapsed_seconds / 30) * 100) + '%';
+    document.getElementById('perfTPSBar').style.width = Math.min(100, (data.tokens_per_sec / 50) * 100) + '%';
+    document.getElementById('perfInBar').style.width = Math.min(100, (data.input_tokens / 2048) * 100) + '%';
+    document.getElementById('perfOutBar').style.width = Math.min(100, (data.output_tokens / 512) * 100) + '%';
+}
+
+// ========== MODEL INFO & SWITCHING ==========
+let currentModelKey = '0.5B';
+let switchingModel = false;
+
+async function fetchModelInfo() {
+    try {
+        const res = await fetch('/api/model_info');
+        const d = await res.json();
+        currentModelKey = d.model_key;
+        document.getElementById('dModelId').textContent = d.model_name || d.model_id.split('/')[1];
+        document.getElementById('dModelMeta').textContent = d.model_id + ' · ' + d.size_hint;
+        document.getElementById('dParamCount').textContent = d.parameters_human;
+        document.getElementById('dDevice').textContent = d.device.toUpperCase();
+        document.getElementById('dVocab').textContent = d.vocab_size.toLocaleString();
+        document.getElementById('dDtype').textContent = d.dtype.replace('torch.', '');
+        document.getElementById('headerModelName').textContent = d.model_key;
+    } catch (e) {}
+}
+
+async function fetchModels() {
+    try {
+        const res = await fetch('/api/models');
+        const d = await res.json();
+        currentModelKey = d.current;
+        document.getElementById('headerModelName').textContent = d.current;
+        renderModelCards(d.models);
+    } catch (e) {}
+}
+
+function renderModelCards(models) {
+    const container = document.getElementById('modelCards');
+    const lang = currentLang;
+    container.innerHTML = models.map(m => {
+        const isActive = m.active;
+        const cls = isActive ? 'model-card active' : 'model-card';
+        const desc = lang === 'he' ? m.description_he : m.description_en;
+        const badgeCls = isActive ? 'model-card-badge active' : 'model-card-badge inactive';
+        const badgeText = isActive ? (lang==='he'?'פעיל':'Active') : (lang==='he'?'לחץ להחלפה':'Click to switch');
+        return `<div class="${cls}" id="modelCard_${m.key}" onclick="switchModel('${m.key}')">
+            <div class="model-card-header">
+                <span class="model-card-name">${m.name}</span>
+                <span class="${badgeCls}" id="modelBadge_${m.key}">${badgeText}</span>
+            </div>
+            <div class="model-card-desc">${desc}</div>
+            <div class="model-card-meta">
+                <span>💾 ${m.size_hint}</span>
+                <span>🆔 ${m.id.split('/')[1]}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function switchModel(key) {
+    if (key === currentModelKey || switchingModel) return;
+
+    const t = i18n[currentLang];
+    const modelName = key === '0.5B' ? 'Qwen 2.5 — 0.5B' : 'Qwen 2.5 — 1.5B';
+    const warnText = currentLang === 'he'
+        ? `האם לעבור ל-${modelName}? השיחה הנוכחית תימחק. הטעינה עשויה לקחת דקה.`
+        : `Switch to ${modelName}? Current chat will be cleared. Loading may take a minute.`;
+
+    showModal('🧠', currentLang==='he'?'החלפת מודל':'Switch Model', warnText, [
+        { label: t.modalCancel, cls: 'cancel' },
+        { label: currentLang==='he'?'החלף':'Switch', cls: 'confirm-amber', action: () => doSwitchModel(key) }
+    ]);
+}
+
+async function doSwitchModel(key) {
+    switchingModel = true;
+
+    // UI feedback
+    document.querySelectorAll('.model-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('modelCard_' + key);
+    if (card) { card.classList.add('loading'); }
+    const badge = document.getElementById('modelBadge_' + key);
+    if (badge) { badge.className = 'model-card-badge loading'; badge.textContent = currentLang==='he'?'טוען...':'Loading...'; }
+    document.getElementById('headerModelName').textContent = '⏳';
+
+    // System message in chat
+    const loadMsg = currentLang==='he' ? `⏳ טוען מודל ${key}... אנא המתינו` : `⏳ Loading model ${key}... please wait`;
+    addMessage('assistant', loadMsg);
+
+    try {
+        const res = await fetch('/api/models/switch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_key: key })
+        });
+        const d = await res.json();
+
+        if (d.error) {
+            addMessage('assistant', '⚠️ Error: ' + d.error);
+        } else {
+            currentModelKey = key;
+            // Reset chat UI
+            const doneMsg = currentLang==='he'
+                ? `✅ מודל ${d.message} נטען בהצלחה (${d.load_time}s). השיחה אופסה.`
+                : `✅ ${d.message} loaded successfully (${d.load_time}s). Chat cleared.`;
+            document.getElementById('messagesArea').innerHTML = '';
+            addMessage('assistant', doneMsg);
+
+            // Refresh all panels
+            fetchModelInfo();
+            fetchModels();
+            refreshWeightsTab();
+        }
+    } catch (err) {
+        addMessage('assistant', '⚠️ ' + err.message);
+    }
+
+    switchingModel = false;
+}
+
+// ========== TEMPLATES ==========
+const templates = {
+    analysis: { he:'נתח את הנושא הבא באופן מעמיק:\n\nנושא: [הכנס נושא]\n\nכלול: רקע, נקודות מפתח, יתרונות/חסרונות, מסקנות', en:'Analyze in depth:\n\nTopic: [insert topic]\n\nInclude: Background, key points, pros/cons, conclusions' },
+    compare: { he:'השווה בין:\n\nאפשרות א: [הכנס]\nאפשרות ב: [הכנס]\n\nקריטריונים: עלות, ביצועים, קלות שימוש\nתן טבלת השוואה ומסקנה.', en:'Compare:\n\nOption A: [insert]\nOption B: [insert]\n\nCriteria: Cost, Performance, Ease of use\nProvide table and conclusion.' },
+    steps: { he:'הסבר שלב-אחר-שלב:\n\nמשימה: [הכנס משימה]\n\nלכל שלב: תיאור, טיפים, שגיאות נפוצות.', en:'Step by step:\n\nTask: [insert task]\n\nPer step: description, tips, common mistakes.' },
+    code: { he:'הסבר את הקוד:\n\n```\n[הדבק קוד]\n```\n\n1. סקירה\n2. שורה-אחר-שורה\n3. שיפורים', en:'Explain this code:\n\n```\n[paste code]\n```\n\n1. Overview\n2. Line-by-line\n3. Improvements' },
+    summarize: { he:'סכם:\n\n[הדבק טקסט]\n\n1. סיכום בשני משפטים\n2. נקודות מפתח\n3. מסקנה', en:'Summarize:\n\n[paste text]\n\n1. Two sentences\n2. Key points\n3. Takeaway' },
+};
+function applyTemplate(name) {
+    const ta = document.getElementById('userInput');
+    ta.value = templates[name][currentLang];
+    autoResize(ta); toggleSend(); ta.focus();
+    const ph = currentLang === 'he' ? '[הכנס' : '[insert';
+    const pos = ta.value.indexOf(ph);
+    if (pos > -1) { const end = ta.value.indexOf(']', pos) + 1; ta.setSelectionRange(pos, end); }
+}
+
+// ========== INPUT ==========
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 180) + 'px'; document.getElementById('charCount').textContent = el.value.length || ''; }
+function toggleSend() { document.getElementById('sendBtn').disabled = !document.getElementById('userInput').value.trim() || isLoading; }
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!isLoading && document.getElementById('userInput').value.trim()) sendMessage(); } }
+
+// ========== CHAT ==========
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+function addMessage(role, content, meta = '') {
+    const w = document.getElementById('welcomeScreen'); if (w) w.remove();
+    const area = document.getElementById('messagesArea');
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    let formatted = escapeHtml(content).replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    div.innerHTML = `<div class="msg-avatar">${role==='user'?'👤':'🤖'}</div><div class="msg-body"><div class="msg-content" dir="auto">${formatted}</div>${meta?`<div class="msg-meta">${meta}</div>`:''}</div>`;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+}
+function showTyping() { const area = document.getElementById('messagesArea'); const div = document.createElement('div'); div.className = 'typing-indicator'; div.id = 'typingIndicator'; div.innerHTML = `<div class="msg-avatar" style="background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;border-radius:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>`; area.appendChild(div); area.scrollTop = area.scrollHeight; }
+function hideTyping() { const el = document.getElementById('typingIndicator'); if (el) el.remove(); }
+
+async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const message = input.value.trim();
+    if (!message || isLoading) return;
+    addMessage('user', message);
+    input.value = ''; autoResize(input); toggleSend();
+    isLoading = true; toggleSend(); showTyping();
+    try {
+        const res = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ message, session_id:sessionId, system_prompt:document.getElementById('systemPrompt').value, params }) });
+        const data = await res.json();
+        hideTyping();
+        if (data.error) { addMessage('assistant', `⚠️ Error: ${data.error}`); }
+        else { addMessage('assistant', data.response, `🧠 ${data.model || currentModelKey} · ⏱ ${data.elapsed_seconds}s · ${data.output_tokens} tok · ${data.tokens_per_sec} t/s`); updatePerformance(data); }
+    } catch (err) { hideTyping(); addMessage('assistant', `⚠️ ${err.message}`); }
+    isLoading = false; toggleSend(); input.focus();
+}
+function quickSend(t) { document.getElementById('userInput').value = t; sendMessage(); }
+async function resetChat() {
+    if (!confirm(i18n[currentLang].confirmReset)) return;
+    try { await fetch('/api/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id:sessionId}) }); } catch(e){}
+    document.getElementById('messagesArea').innerHTML = `<div class="welcome" id="welcomeScreen"><div class="welcome-icon">🤖</div><h2>${i18n[currentLang].welcomeTitle}</h2><p>${i18n[currentLang].welcomeText}</p></div>`;
+}
+
+// ========== INIT ==========
+document.getElementById('userInput').focus();
+refreshConfigSummary();
+fetchModelInfo();
+fetchModels();
+refreshWeightsTab();
+</script>
+</body>
+</html>
